@@ -1,55 +1,54 @@
 const tg = window.Telegram.WebApp;
 tg.expand();
 
-// API Ключ не нужен, используем публичный инстанс поиска
 async function searchMusic() {
-    const query = document.getElementById('searchInput').value;
-    const container = document.getElementById('results');
+    const q = document.getElementById('searchInput').value.trim();
+    const resContainer = document.getElementById('results');
     
-    if (!query) return;
-    container.innerHTML = "<p style='text-align:center; color:#00ff88;'>🔍 Синхронизация с базой...</p>";
+    if (!q) return;
+    resContainer.innerHTML = "<p style='text-align:center; color:#1db954'>🔍 Ищем файлы без рекламы...</p>";
 
-    // Используем Invidious API (зеркало YouTube) - оно работает без ключей и CORS
-    const searchUrl = `https://inv.vern.cc/api/v1/search?q=${encodeURIComponent(query)}&type=video`;
+    // Используем API на базе SoundCloud/YouTube/ВК, которое дает полные файлы
+    const url = `https://api.allorigins.win/get?url=${encodeURIComponent(`https://api-music.solmi.shop/search?q=${q}`)}`;
 
     try {
-        const response = await fetch(searchUrl);
-        const results = await response.json();
+        const response = await fetch(url);
+        const rawData = await response.json();
+        const data = JSON.parse(rawData.contents);
 
-        container.innerHTML = "";
+        resContainer.innerHTML = "";
         
-        results.forEach(video => {
-            const card = document.createElement('div');
-            card.className = 'card';
-            card.innerHTML = `
-                <img src="${video.videoThumbnails[0].url}">
-                <div class="card-info">
-                    <b>${video.title}</b>
-                    <span>${video.author}</span>
+        if (!data || data.length === 0) {
+            resContainer.innerHTML = "<p style='text-align:center'>Ничего не найдено</p>";
+            return;
+        }
+
+        data.forEach(track => {
+            const div = document.createElement('div');
+            div.className = 'track-item';
+            div.innerHTML = `
+                <img src="${track.image || 'https://via.placeholder.com/50'}">
+                <div>
+                    <b>${track.title}</b>
+                    <span>${track.artist}</span>
                 </div>
             `;
             
-            card.onclick = () => {
-                // Генерируем прямую аудио-ссылку
-                const audioUrl = `https://inv.vern.cc/latest_version?id=${video.videoId}&itag=140`;
-                playMusic(audioUrl, video.title, video.author, video.videoThumbnails[0].url);
+            div.onclick = () => {
+                const player = document.getElementById('audioPlayer');
+                // Заменяем на https, чтобы Telegram не блокировал
+                player.src = track.url.replace('http://', 'https://');
+                player.play();
+                
+                document.getElementById('track-title').innerText = track.title;
+                document.getElementById('track-artist').innerText = track.artist;
+                document.getElementById('current-img').src = track.image || 'https://via.placeholder.com/50';
+                
+                tg.HapticFeedback.impactOccurred('medium');
             };
-            container.appendChild(card);
+            resContainer.appendChild(div);
         });
-    } catch (error) {
-        container.innerHTML = "<p style='text-align:center; color:red;'>Ошибка сети. Попробуйте еще раз.</p>";
+    } catch (e) {
+        resContainer.innerHTML = "<p style='text-align:center; color:red'>Ошибка связи с базой. Попробуйте еще раз.</p>";
     }
-}
-
-function playMusic(url, title, artist, img) {
-    const player = document.getElementById('audioPlayer');
-    player.src = url;
-    player.play();
-
-    document.getElementById('track-title').innerText = title;
-    document.getElementById('track-artist').innerText = artist;
-    document.getElementById('current-art').src = img;
-
-    // Вибрация телефона при включении трека
-    tg.HapticFeedback.impactOccurred('medium');
 }
