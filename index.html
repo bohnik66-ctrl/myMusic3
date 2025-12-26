@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Music Mini App</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="header">
+        <input type="text" id="searchInput" placeholder="Название песни...">
+        <button onclick="searchMusic()">ПОИСК</button>
+    </div>
+
+    <div id="results" class="results"></div>
+
+    <div class="player">
+        <div class="info">
+            <img id="track-img" src="https://via.placeholder.com/40">
+            <div>
+                <b id="track-title">Не выбрано</b><br>
+                <span id="track-artist">Исполнитель</span>
+            </div>
+        </div>
+        <audio id="mainPlayer" controls autoplay></audio>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
