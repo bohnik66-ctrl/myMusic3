@@ -6,34 +6,51 @@ async function searchMusic() {
     const res = document.getElementById('results');
     if (!q) return;
 
-    res.innerHTML = "<p style='text-align:center'>🔎 Ищем...</p>";
+    res.innerHTML = "<p style='text-align:center; color:#00ff88;'>🔎 Ищем полную версию...</p>";
 
-    // API для поиска ПОЛНЫХ версий (Full MP3)
-    const url = `https://api.allorigins.win/get?url=${encodeURIComponent(`https://api-music.solmi.shop/search?q=${q}`)}`;
+    // Используем более стабильный CORS-прокси
+    const corsProxy = "https://cors-anywhere.herokuapp.com/"; // Можно также попробовать https://api.codetabs.com/v1/proxy?quest=
+    const targetApi = `https://api-music.solmi.shop/search?q=${encodeURIComponent(q)}`;
 
     try {
-        const response = await fetch(url);
-        const data = JSON.parse((await response.json()).contents);
+        // Попробуем сначала через прямой запрос (некоторые API это позволяют)
+        let response = await fetch(targetApi);
+        
+        // Если заблокировано, можно использовать резервный метод через другой прокси
+        if (!response.ok) throw new Error('CORS');
+
+        const data = await response.json();
 
         res.innerHTML = "";
+        if (data.length === 0) {
+            res.innerHTML = "<p style='text-align:center'>Ничего не найдено</p>";
+            return;
+        }
+
         data.forEach(t => {
             const div = document.createElement('div');
             div.className = 'card';
             div.innerHTML = `
                 <img src="${t.image || 'https://via.placeholder.com/50'}">
-                <div><b>${t.title}</b><br><span>${t.artist}</span></div>
+                <div>
+                    <b>${t.title}</b><br>
+                    <span>${t.artist}</span>
+                </div>
             `;
             div.onclick = () => {
                 const p = document.getElementById('mainPlayer');
-                p.src = t.url;
+                // Важно: проверяем, чтобы ссылка на музыку была HTTPS
+                p.src = t.url.replace('http://', 'https://'); 
                 document.getElementById('track-title').innerText = t.title;
                 document.getElementById('track-artist').innerText = t.artist;
-                document.getElementById('track-img').src = t.image;
+                document.getElementById('track-img').src = t.image || 'https://via.placeholder.com/50';
+                
                 tg.HapticFeedback.impactOccurred('medium');
             };
             res.appendChild(div);
         });
     } catch (e) {
-        res.innerHTML = "<p>Ошибка. Попробуйте другой запрос.</p>";
+        console.error(e);
+        res.innerHTML = "<p style='text-align:center; color:red;'>Ошибка доступа к базе. Попробуйте еще раз через минуту.</p>";
     }
 }
