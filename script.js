@@ -1,52 +1,67 @@
 const tg = window.Telegram.WebApp;
 tg.expand();
 
-async function searchMusic() {
-    const q = document.getElementById('searchInput').value.trim();
-    const resBox = document.getElementById('results');
-    
-    if (!q) return;
-    resBox.innerHTML = "<p style='text-align:center; color:#00ff88;'>🔍 Поиск в базе бота...</p>";
+let player;
+// Инициализация плеера YouTube
+function onYouTubeIframeAPIReady() {
+    player = new YT.Player('yt-player', {
+        height: '0', width: '0',
+        events: { 'onStateChange': onPlayerStateChange }
+    });
+}
 
-    // Официальный API Jamendo для получения полных треков
-    const url = `https://api.jamendo.com/v3.0/tracks/?client_id=56d30cce&format=jsonpost&limit=20&search=${encodeURIComponent(q)}&audioformat=mp32`;
+async function searchMusic() {
+    const q = document.getElementById('searchInput').value;
+    const res = document.getElementById('results');
+    if (!q) return;
+
+    res.innerHTML = "<p style='text-align:center; color:#00ff88;'>🔎 Ищем трек в базе...</p>";
 
     try {
-        const response = await fetch(url);
+        // Используем более стабильное зеркало для поиска
+        const response = await fetch(`https://pipedapi.kavin.rocks/search?q=${encodeURIComponent(q)}&filter=music_videos`);
         const data = await response.json();
 
-        resBox.innerHTML = "";
-        
-        if (!data.results || data.results.length === 0) {
-            resBox.innerHTML = "<p style='text-align:center'>Ничего не найдено.</p>";
-            return;
-        }
-
-        data.results.forEach(track => {
+        res.innerHTML = "";
+        data.items.forEach(item => {
             const div = document.createElement('div');
             div.className = 'card';
             div.innerHTML = `
-                <img src="${track.image}">
-                <div style="overflow:hidden">
-                    <b>${track.name}</b>
-                    <span>${track.artist_name}</span>
-                </div>
+                <img src="${item.thumbnail}">
+                <div style="overflow:hidden"><b>${item.title}</b><br><span>${item.uploaderName}</span></div>
             `;
-            
             div.onclick = () => {
-                const audio = document.getElementById('audioElement');
-                audio.src = track.audio; // Прямая ссылка на полный файл
-                audio.play();
-                
-                document.getElementById('track-name').innerText = track.name;
-                document.getElementById('track-artist').innerText = track.artist_name;
-                document.getElementById('track-art').src = track.image;
-                
-                tg.HapticFeedback.impactOccurred('medium');
+                player.loadVideoById(item.url.split('=')[1]);
+                document.getElementById('track-title').innerText = item.title;
+                document.getElementById('track-artist').innerText = item.uploaderName;
+                document.getElementById('track-img').src = item.thumbnail;
+                document.getElementById('playBtn').innerText = '⏸';
+                tg.HapticFeedback.impactOccurred('light');
             };
-            resBox.appendChild(div);
+            res.appendChild(div);
         });
     } catch (e) {
-        resBox.innerHTML = "<p style='text-align:center; color:red;'>Ошибка сети. Попробуйте еще раз.</p>";
+        res.innerHTML = "<p style='text-align:center; color:red;'>База временно недоступна. Попробуйте еще раз.</p>";
+    }
+}
+
+function playPause() {
+    const state = player.getPlayerState();
+    if (state === 1) { 
+        player.pauseVideo();
+        document.getElementById('playBtn').innerText = '▶';
+    } else { 
+        player.playVideo();
+        document.getElementById('playBtn').innerText = '⏸';
+    }
+}
+
+function onPlayerStateChange(event) {
+    if (event.data === YT.PlayerState.PLAYING) {
+        setInterval(() => {
+            const duration = player.getDuration();
+            const currentTime = player.getCurrentTime();
+            document.getElementById('progress-bar').style.width = (currentTime / duration * 100) + "%";
+        }, 1000);
     }
 }
