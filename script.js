@@ -1,67 +1,53 @@
 const tg = window.Telegram.WebApp;
 tg.expand();
 
-let player;
-// Инициализация плеера YouTube
-function onYouTubeIframeAPIReady() {
-    player = new YT.Player('yt-player', {
-        height: '0', width: '0',
-        events: { 'onStateChange': onPlayerStateChange }
-    });
-}
-
 async function searchMusic() {
-    const q = document.getElementById('searchInput').value;
-    const res = document.getElementById('results');
-    if (!q) return;
+    const query = document.getElementById('searchInput').value.trim();
+    const resultsContainer = document.getElementById('results');
+    
+    if (!query) return;
+    resultsContainer.innerHTML = "<p style='text-align:center; color:#00ff88;'>🔎 Подключение к защищенной базе...</p>";
 
-    res.innerHTML = "<p style='text-align:center; color:#00ff88;'>🔎 Ищем трек в базе...</p>";
+    // Используем HearThis API — оно отдает полные треки и разрешено в Telegram
+    const apiUrl = `https://hearthis.at/api/search?q=${encodeURIComponent(query)}&count=20`;
 
     try {
-        // Используем более стабильное зеркало для поиска
-        const response = await fetch(`https://pipedapi.kavin.rocks/search?q=${encodeURIComponent(q)}&filter=music_videos`);
+        const response = await fetch(apiUrl);
         const data = await response.json();
 
-        res.innerHTML = "";
-        data.items.forEach(item => {
-            const div = document.createElement('div');
-            div.className = 'card';
-            div.innerHTML = `
-                <img src="${item.thumbnail}">
-                <div style="overflow:hidden"><b>${item.title}</b><br><span>${item.uploaderName}</span></div>
+        resultsContainer.innerHTML = "";
+        
+        if (!data || data.length === 0) {
+            resultsContainer.innerHTML = "<p style='text-align:center'>Треков не найдено. Попробуйте другой запрос.</p>";
+            return;
+        }
+
+        data.forEach(track => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `
+                <img src="${track.thumb || 'https://via.placeholder.com/50'}">
+                <div style="overflow:hidden">
+                    <b>${track.title}</b>
+                    <span>${track.user.username}</span>
+                </div>
             `;
-            div.onclick = () => {
-                player.loadVideoById(item.url.split('=')[1]);
-                document.getElementById('track-title').innerText = item.title;
-                document.getElementById('track-artist').innerText = item.uploaderName;
-                document.getElementById('track-img').src = item.thumbnail;
-                document.getElementById('playBtn').innerText = '⏸';
-                tg.HapticFeedback.impactOccurred('light');
+            
+            card.onclick = () => {
+                const audio = document.getElementById('audioPlayer');
+                // stream_url — это прямая ссылка на ПОЛНЫЙ файл без рекламы
+                audio.src = track.stream_url;
+                audio.play();
+                
+                document.getElementById('track-title').innerText = track.title;
+                document.getElementById('track-artist').innerText = track.user.username;
+                document.getElementById('track-img').src = track.thumb || 'https://via.placeholder.com/50';
+                
+                tg.HapticFeedback.impactOccurred('medium');
             };
-            res.appendChild(div);
+            resultsContainer.appendChild(card);
         });
     } catch (e) {
-        res.innerHTML = "<p style='text-align:center; color:red;'>База временно недоступна. Попробуйте еще раз.</p>";
-    }
-}
-
-function playPause() {
-    const state = player.getPlayerState();
-    if (state === 1) { 
-        player.pauseVideo();
-        document.getElementById('playBtn').innerText = '▶';
-    } else { 
-        player.playVideo();
-        document.getElementById('playBtn').innerText = '⏸';
-    }
-}
-
-function onPlayerStateChange(event) {
-    if (event.data === YT.PlayerState.PLAYING) {
-        setInterval(() => {
-            const duration = player.getDuration();
-            const currentTime = player.getCurrentTime();
-            document.getElementById('progress-bar').style.width = (currentTime / duration * 100) + "%";
-        }, 1000);
+        resultsContainer.innerHTML = "<p style='text-align:center; color:red;'>Ошибка доступа. Попробуйте обновить страницу.</p>";
     }
 }
