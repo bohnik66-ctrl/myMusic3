@@ -1,56 +1,55 @@
 const tg = window.Telegram.WebApp;
 tg.expand();
 
+// API Ключ не нужен, используем публичный инстанс поиска
 async function searchMusic() {
-    const q = document.getElementById('searchInput').value;
-    const res = document.getElementById('results');
-    if (!q) return;
+    const query = document.getElementById('searchInput').value;
+    const container = document.getElementById('results');
+    
+    if (!query) return;
+    container.innerHTML = "<p style='text-align:center; color:#00ff88;'>🔍 Синхронизация с базой...</p>";
 
-    res.innerHTML = "<p style='text-align:center; color:#00ff88;'>🔎 Ищем полную версию...</p>";
-
-    // Используем более стабильный CORS-прокси
-    const corsProxy = "https://cors-anywhere.herokuapp.com/"; // Можно также попробовать https://api.codetabs.com/v1/proxy?quest=
-    const targetApi = `https://api-music.solmi.shop/search?q=${encodeURIComponent(q)}`;
+    // Используем Invidious API (зеркало YouTube) - оно работает без ключей и CORS
+    const searchUrl = `https://inv.vern.cc/api/v1/search?q=${encodeURIComponent(query)}&type=video`;
 
     try {
-        // Попробуем сначала через прямой запрос (некоторые API это позволяют)
-        let response = await fetch(targetApi);
+        const response = await fetch(searchUrl);
+        const results = await response.json();
+
+        container.innerHTML = "";
         
-        // Если заблокировано, можно использовать резервный метод через другой прокси
-        if (!response.ok) throw new Error('CORS');
-
-        const data = await response.json();
-
-        res.innerHTML = "";
-        if (data.length === 0) {
-            res.innerHTML = "<p style='text-align:center'>Ничего не найдено</p>";
-            return;
-        }
-
-        data.forEach(t => {
-            const div = document.createElement('div');
-            div.className = 'card';
-            div.innerHTML = `
-                <img src="${t.image || 'https://via.placeholder.com/50'}">
-                <div>
-                    <b>${t.title}</b><br>
-                    <span>${t.artist}</span>
+        results.forEach(video => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `
+                <img src="${video.videoThumbnails[0].url}">
+                <div class="card-info">
+                    <b>${video.title}</b>
+                    <span>${video.author}</span>
                 </div>
             `;
-            div.onclick = () => {
-                const p = document.getElementById('mainPlayer');
-                // Важно: проверяем, чтобы ссылка на музыку была HTTPS
-                p.src = t.url.replace('http://', 'https://'); 
-                document.getElementById('track-title').innerText = t.title;
-                document.getElementById('track-artist').innerText = t.artist;
-                document.getElementById('track-img').src = t.image || 'https://via.placeholder.com/50';
-                
-                tg.HapticFeedback.impactOccurred('medium');
+            
+            card.onclick = () => {
+                // Генерируем прямую аудио-ссылку
+                const audioUrl = `https://inv.vern.cc/latest_version?id=${video.videoId}&itag=140`;
+                playMusic(audioUrl, video.title, video.author, video.videoThumbnails[0].url);
             };
-            res.appendChild(div);
+            container.appendChild(card);
         });
-    } catch (e) {
-        console.error(e);
-        res.innerHTML = "<p style='text-align:center; color:red;'>Ошибка доступа к базе. Попробуйте еще раз через минуту.</p>";
+    } catch (error) {
+        container.innerHTML = "<p style='text-align:center; color:red;'>Ошибка сети. Попробуйте еще раз.</p>";
     }
+}
+
+function playMusic(url, title, artist, img) {
+    const player = document.getElementById('audioPlayer');
+    player.src = url;
+    player.play();
+
+    document.getElementById('track-title').innerText = title;
+    document.getElementById('track-artist').innerText = artist;
+    document.getElementById('current-art').src = img;
+
+    // Вибрация телефона при включении трека
+    tg.HapticFeedback.impactOccurred('medium');
 }
