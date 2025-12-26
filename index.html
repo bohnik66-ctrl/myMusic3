@@ -3,29 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Music App</title>
+    <title>Music Cloud</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://www.youtube.com/iframe_api"></script>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="header">
-        <div class="search-box">
-            <input type="text" id="searchInput" placeholder="Поиск (напр. Rock)...">
-            <button onclick="searchMusic()">НАЙТИ</button>
-        </div>
+        <input type="text" id="searchInput" placeholder="Название песни...">
+        <button onclick="searchMusic()">ПОИСК</button>
     </div>
 
     <div id="results" class="results"></div>
 
-    <div class="player">
-        <div class="track-info">
-            <img id="track-art" src="https://via.placeholder.com/50">
-            <div class="text">
-                <b id="track-name">Не выбрано</b>
-                <span id="track-artist">Исполнитель</span>
+    <div id="yt-player" style="position: absolute; top: -9999px;"></div>
+
+    <div class="player-bar">
+        <div class="info">
+            <img id="track-img" src="https://via.placeholder.com/50">
+            <div>
+                <b id="track-title">Не выбрано</b><br>
+                <span id="track-artist">Артист</span>
             </div>
         </div>
-        <audio id="audioElement" controls autoplay></audio>
+        <div class="controls">
+            <button onclick="playPause()" id="playBtn">▶</button>
+            <div class="progress-container" onclick="seek(event)">
+                <div id="progress-bar"></div>
+            </div>
+        </div>
     </div>
     <script src="script.js"></script>
 </body>
